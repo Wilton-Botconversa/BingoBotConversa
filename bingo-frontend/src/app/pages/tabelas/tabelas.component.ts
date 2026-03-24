@@ -2,13 +2,11 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardService } from '../../core/services/card.service';
 import { GameService } from '../../core/services/game.service';
-import { WebSocketService } from '../../core/services/websocket.service';
 import { BingoCardComponent } from './bingo-card/bingo-card.component';
 import { RankingBoardComponent } from '../../shared/components/ranking-board/ranking-board.component';
 import { BingoCard, CardCell } from '../../core/models/bingo-card.model';
 import { RankingEntry } from '../../core/models/ranking.model';
 import { Game } from '../../core/models/game.model';
-import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-tabelas',
@@ -161,12 +159,11 @@ export class TabelasComponent implements OnInit, OnDestroy {
   winners: RankingEntry[] = [];
   lastDrawnNumber: number | null = null;
   loading = true;
-  private subs: Subscription[] = [];
+  private pollInterval: any = null;
 
   constructor(
     private cardService: CardService,
-    private gameService: GameService,
-    private wsService: WebSocketService
+    private gameService: GameService
   ) {}
 
   ngOnInit(): void {
@@ -174,7 +171,7 @@ export class TabelasComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.subs.forEach(s => s.unsubscribe());
+    this.stopPolling();
   }
 
   loadGame(): void {
@@ -184,7 +181,7 @@ export class TabelasComponent implements OnInit, OnDestroy {
         if (game && (game.status === 'ACTIVE' || game.status === 'PAUSED' || game.status === 'PENDING')) {
           this.loadCard(game.id);
           this.loadRanking(game.id);
-          this.setupWebSocket(game.id);
+          this.startPolling(game.id);
           if (game.drawnNumbers?.length) {
             this.lastDrawnNumber = game.drawnNumbers[game.drawnNumbers.length - 1];
           }
@@ -209,37 +206,42 @@ export class TabelasComponent implements OnInit, OnDestroy {
     });
   }
 
-  setupWebSocket(gameId: number): void {
-    this.wsService.connect().catch(() => {});
+  startPolling(gameId: number): void {
+    this.pollInterval = setInterval(() => {
+      this.gameService.pollGame(gameId).subscribe({
+        next: (data: any) => {
+          if (this.game) {
+            // Update drawn numbers
+            if (data.drawnNumbers?.length > (this.game.drawnNumbers?.length || 0)) {
+              this.lastDrawnNumber = data.drawnNumbers[data.drawnNumbers.length - 1];
+              // Update card cells for newly drawn numbers
+              if (this.card) {
+                const drawnSet = new Set(data.drawnNumbers);
+                this.card.cells = this.card.cells.map(cell => ({
+                  ...cell,
+                  drawn: drawnSet.has(cell.number) ? true : cell.drawn
+                }));
+              }
+            }
+            this.game.drawnNumbers = data.drawnNumbers;
+            this.game.status = data.status;
+          }
+          this.winners = data.winners || [];
 
-    // Listen for drawn numbers
-    const drawSub = this.wsService.subscribe<any>(`/topic/game/${gameId}/draw`).subscribe(event => {
-      if (this.game) {
-        this.game.drawnNumbers = event.drawnNumbers;
-      }
-      this.lastDrawnNumber = event.number;
+          // Stop polling if game finished
+          if (data.status === 'FINISHED') {
+            this.stopPolling();
+          }
+        }
+      });
+    }, 2000);
+  }
 
-      // Update card cells
-      if (this.card) {
-        this.card.cells = this.card.cells.map(cell =>
-          cell.number === event.number ? { ...cell, drawn: true } : cell
-        );
-      }
-    });
-
-    // Listen for ranking updates
-    const rankSub = this.wsService.subscribe<any>(`/topic/game/${gameId}/ranking`).subscribe(event => {
-      this.winners = event.winners;
-    });
-
-    // Listen for game status changes
-    const statusSub = this.wsService.subscribe<any>(`/topic/game/${gameId}/status`).subscribe(event => {
-      if (this.game) {
-        this.game.status = event.status;
-      }
-    });
-
-    this.subs.push(drawSub, rankSub, statusSub);
+  stopPolling(): void {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
   }
 
   onCellClick(cell: CardCell): void {

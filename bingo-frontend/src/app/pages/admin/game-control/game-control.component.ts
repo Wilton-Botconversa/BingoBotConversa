@@ -3,11 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { GameService } from '../../../core/services/game.service';
 import { ParticipantService } from '../../../core/services/participant.service';
-import { WebSocketService } from '../../../core/services/websocket.service';
 import { RankingBoardComponent } from '../../../shared/components/ranking-board/ranking-board.component';
 import { Game, Participant } from '../../../core/models/game.model';
 import { RankingEntry } from '../../../core/models/ranking.model';
-import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-game-control',
@@ -163,12 +161,11 @@ export class GameControlComponent implements OnInit, OnDestroy {
   starting = false;
   drawing = false;
   error = '';
-  private subs: Subscription[] = [];
+  private pollInterval: any = null;
 
   constructor(
     private gameService: GameService,
-    private participantService: ParticipantService,
-    private wsService: WebSocketService
+    private participantService: ParticipantService
   ) {}
 
   ngOnInit(): void {
@@ -176,7 +173,7 @@ export class GameControlComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.subs.forEach(s => s.unsubscribe());
+    this.stopPolling();
   }
 
   loadGame(): void {
@@ -186,7 +183,7 @@ export class GameControlComponent implements OnInit, OnDestroy {
         if (game) {
           this.loadParticipants();
           this.loadRanking();
-          this.setupWebSocket(game.id);
+          this.startPolling(game.id);
           if (game.drawnNumbers?.length) {
             this.lastDrawnNumber = game.drawnNumbers[game.drawnNumbers.length - 1];
           }
@@ -211,23 +208,29 @@ export class GameControlComponent implements OnInit, OnDestroy {
     });
   }
 
-  setupWebSocket(gameId: number): void {
-    this.wsService.connect().catch(() => {});
+  startPolling(gameId: number): void {
+    this.pollInterval = setInterval(() => {
+      this.gameService.pollGame(gameId).subscribe({
+        next: (data: any) => {
+          if (this.game) {
+            this.game.drawnNumbers = data.drawnNumbers;
+            this.game.status = data.status;
+            if (data.drawnNumbers?.length) {
+              this.lastDrawnNumber = data.drawnNumbers[data.drawnNumbers.length - 1];
+            }
+          }
+          this.winners = data.winners || [];
+          if (data.status === 'FINISHED') this.stopPolling();
+        }
+      });
+    }, 2000);
+  }
 
-    const drawSub = this.wsService.subscribe<any>(`/topic/game/${gameId}/draw`).subscribe(event => {
-      if (this.game) this.game.drawnNumbers = event.drawnNumbers;
-      this.lastDrawnNumber = event.number;
-    });
-
-    const rankSub = this.wsService.subscribe<any>(`/topic/game/${gameId}/ranking`).subscribe(event => {
-      this.winners = event.winners;
-    });
-
-    const statusSub = this.wsService.subscribe<any>(`/topic/game/${gameId}/status`).subscribe(event => {
-      if (this.game) this.game.status = event.status;
-    });
-
-    this.subs.push(drawSub, rankSub, statusSub);
+  stopPolling(): void {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
   }
 
   createGame(): void {
@@ -246,7 +249,7 @@ export class GameControlComponent implements OnInit, OnDestroy {
       next: () => {
         if (this.game) this.game.status = 'ACTIVE';
         this.starting = false;
-        this.setupWebSocket(this.game!.id);
+        this.startPolling(this.game!.id);
       },
       error: (err) => { this.error = err.error?.error || 'Erro ao iniciar'; this.starting = false; }
     });

@@ -45,4 +45,8 @@ export class GameService {
   getRanking(gameId: number): Observable<any[]> {
     return this.http.get<any[]>(`${this.API}/games/${gameId}/ranking`);
   }
+
+  pollGame(gameId: number): Observable<any> {
+    return this.http.get(`${this.API}/games/${gameId}/poll`);
+  }
 }

@@ -1,0 +1,9 @@
+{
+  "buildCommand": "cd bingo-frontend && npm install && npx ng build --configuration production",
+  "outputDirectory": "bingo-frontend/dist/bingo-frontend/browser",
+  "framework": null,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
