@@ -4,8 +4,8 @@ bingo-backend/.mvn/
 bingo-backend/mvnw
 bingo-backend/mvnw.cmd
 
-# Frontend
-bingo-frontend/node_modules/
+# Node
+node_modules/
 bingo-frontend/dist/
 bingo-frontend/.angular/
 
