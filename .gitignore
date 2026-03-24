@@ -1,0 +1,30 @@
+# Backend
+bingo-backend/target/
+bingo-backend/.mvn/
+bingo-backend/mvnw
+bingo-backend/mvnw.cmd
+
+# Frontend
+bingo-frontend/node_modules/
+bingo-frontend/dist/
+bingo-frontend/.angular/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+*.env
+.env.*
+
+# Scripts
+setup.bat
+set-env.ps1
+
+# Logs
+*.log
