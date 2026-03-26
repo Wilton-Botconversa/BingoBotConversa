@@ -49,4 +49,8 @@ export class GameService {
   pollGame(gameId: number): Observable<any> {
     return this.http.get(`${this.API}/games/${gameId}/poll`);
   }
+
+  claimBingo(gameId: number): Observable<any> {
+    return this.http.post(`${this.API}/games/${gameId}/bingo`, {});
+  }
 }

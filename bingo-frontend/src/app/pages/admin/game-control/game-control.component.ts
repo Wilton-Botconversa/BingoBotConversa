@@ -223,7 +223,7 @@ export class GameControlComponent implements OnInit, OnDestroy {
           if (data.status === 'FINISHED') this.stopPolling();
         }
       });
-    }, 2000);
+    }, 1000);
   }
 
   stopPolling(): void {

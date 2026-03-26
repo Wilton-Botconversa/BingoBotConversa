@@ -22,22 +22,40 @@ import { Game } from '../../core/models/game.model';
         <span class="status-badge" [class]="'status-' + game.status.toLowerCase()">
           {{ game.status }}
         </span>
-        <span class="drawn-count">Números sorteados: {{ game.drawnNumbers?.length || 0 }} / 75</span>
+        <span class="drawn-count">Confirmados: {{ confirmedCount }} / 25</span>
       </div>
 
+      <!-- BINGO CARD ON TOP -->
+      <app-bingo-card [cells]="card.cells" (cellClick)="onCellClick($event)" />
+
+      <!-- BINGO BUTTON -->
+      <div class="bingo-button-container">
+        <button
+          class="btn-bingo"
+          [class.active]="canClaimBingo"
+          [disabled]="!canClaimBingo || claimingBingo"
+          (click)="onClaimBingo()">
+          {{ claimingBingo ? 'Registrando...' : 'BINGO!' }}
+        </button>
+      </div>
+
+      <!-- Congrats message ONLY after clicking BINGO -->
+      <div class="completion-message" *ngIf="bingoMessage">
+        {{ bingoMessage }}
+      </div>
+
+      <!-- LAST DRAWN NUMBER -->
       <div class="last-number" *ngIf="lastDrawnNumber">
         <span class="last-label">Último número:</span>
         <span class="last-value">{{ lastDrawnNumber }}</span>
       </div>
 
-      <div class="drawn-numbers" *ngIf="game.drawnNumbers?.length">
-        <div class="number-pill" *ngFor="let n of game.drawnNumbers">{{ n }}</div>
-      </div>
-
-      <app-bingo-card [cells]="card.cells" (cellClick)="onCellClick($event)" />
-
-      <div class="completion-message" *ngIf="card.completed">
-        PARABÉNS! Você completou a cartela! Posição: #{{ card.completionRank }}
+      <!-- DRAWN NUMBERS BELOW -->
+      <div class="drawn-numbers-section" *ngIf="game.drawnNumbers?.length">
+        <h3 class="section-title">Números sorteados ({{ game.drawnNumbers.length }})</h3>
+        <div class="drawn-numbers">
+          <div class="number-pill" *ngFor="let n of game.drawnNumbers">{{ n }}</div>
+        </div>
       </div>
     </div>
 
@@ -55,7 +73,6 @@ import { Game } from '../../core/models/game.model';
       text-align: center;
       margin-bottom: 24px;
     }
-
     .game-status {
       display: flex;
       justify-content: center;
@@ -63,7 +80,6 @@ import { Game } from '../../core/models/game.model';
       gap: 16px;
       margin-bottom: 16px;
     }
-
     .status-badge {
       padding: 6px 16px;
       border-radius: 20px;
@@ -75,15 +91,55 @@ import { Game } from '../../core/models/game.model';
     .status-active { background: #E8F5E9; color: #2E7D32; }
     .status-paused { background: #FFF8E1; color: #F57F17; }
     .status-finished { background: #ECEFF1; color: #546E7A; }
-
     .drawn-count {
       font-size: 14px;
       color: #666;
     }
-
+    .bingo-button-container {
+      text-align: center;
+      margin: 24px 0;
+    }
+    .btn-bingo {
+      padding: 16px 64px;
+      font-size: 28px;
+      font-weight: 800;
+      border-radius: 16px;
+      border: 3px solid #ccc;
+      background: #e0e0e0;
+      color: #999;
+      cursor: not-allowed;
+      transition: all 0.3s;
+      letter-spacing: 2px;
+    }
+    .btn-bingo.active {
+      background: #4CAF50;
+      color: white;
+      border-color: #2E7D32;
+      cursor: pointer;
+      animation: bingoPulse 1s infinite;
+    }
+    .btn-bingo.active:hover {
+      background: #388E3C;
+      transform: scale(1.05);
+    }
+    @keyframes bingoPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+      50% { box-shadow: 0 0 0 12px rgba(76, 175, 80, 0); }
+    }
+    .completion-message {
+      text-align: center;
+      margin: 16px auto;
+      padding: 16px;
+      background: #E8F5E9;
+      color: #2E7D32;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: 700;
+      max-width: 400px;
+    }
     .last-number {
       text-align: center;
-      margin-bottom: 16px;
+      margin: 20px 0 12px;
     }
     .last-label {
       font-size: 14px;
@@ -95,18 +151,23 @@ import { Game } from '../../core/models/game.model';
       font-weight: 700;
       color: #9C27B0;
     }
-
+    .drawn-numbers-section {
+      max-width: 500px;
+      margin: 16px auto 0;
+    }
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #666;
+      text-align: center;
+      margin-bottom: 12px;
+    }
     .drawn-numbers {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
       gap: 6px;
-      margin-bottom: 24px;
-      max-width: 500px;
-      margin-left: auto;
-      margin-right: auto;
     }
-
     .number-pill {
       width: 36px;
       height: 36px;
@@ -119,7 +180,6 @@ import { Game } from '../../core/models/game.model';
       font-size: 13px;
       font-weight: 600;
     }
-
     .card {
       background: white;
       border-radius: 16px;
@@ -128,29 +188,12 @@ import { Game } from '../../core/models/game.model';
       max-width: 500px;
       margin: 0 auto;
     }
-
     .empty-card {
       text-align: center;
       color: #999;
-
-      p { margin-bottom: 8px; }
-
-      .hint {
-        font-size: 13px;
-        color: #bbb;
-      }
     }
-
-    .completion-message {
-      text-align: center;
-      margin-top: 24px;
-      padding: 16px;
-      background: #E8F5E9;
-      color: #2E7D32;
-      border-radius: 12px;
-      font-size: 18px;
-      font-weight: 700;
-    }
+    .empty-card p { margin-bottom: 8px; }
+    .empty-card .hint { font-size: 13px; color: #bbb; }
   `]
 })
 export class TabelasComponent implements OnInit, OnDestroy {
@@ -159,6 +202,10 @@ export class TabelasComponent implements OnInit, OnDestroy {
   winners: RankingEntry[] = [];
   lastDrawnNumber: number | null = null;
   loading = true;
+  canClaimBingo = false;
+  claimingBingo = false;
+  bingoMessage = '';
+  confirmedCount = 0;
   private pollInterval: any = null;
 
   constructor(
@@ -194,7 +241,11 @@ export class TabelasComponent implements OnInit, OnDestroy {
 
   loadCard(gameId: number): void {
     this.cardService.getMyCard(gameId).subscribe({
-      next: (card) => this.card = card,
+      next: (card) => {
+        this.card = card;
+        this.updateConfirmedCount();
+        this.checkBingoReady();
+      },
       error: () => this.card = null
     });
   }
@@ -211,10 +262,8 @@ export class TabelasComponent implements OnInit, OnDestroy {
       this.gameService.pollGame(gameId).subscribe({
         next: (data: any) => {
           if (this.game) {
-            // Update drawn numbers
             if (data.drawnNumbers?.length > (this.game.drawnNumbers?.length || 0)) {
               this.lastDrawnNumber = data.drawnNumbers[data.drawnNumbers.length - 1];
-              // Update card cells for newly drawn numbers
               if (this.card) {
                 const drawnSet = new Set(data.drawnNumbers);
                 this.card.cells = this.card.cells.map(cell => ({
@@ -227,14 +276,10 @@ export class TabelasComponent implements OnInit, OnDestroy {
             this.game.status = data.status;
           }
           this.winners = data.winners || [];
-
-          // Stop polling if game finished
-          if (data.status === 'FINISHED') {
-            this.stopPolling();
-          }
+          if (data.status === 'FINISHED') this.stopPolling();
         }
       });
-    }, 2000);
+    }, 1000); // Poll every 1 second for faster updates
   }
 
   stopPolling(): void {
@@ -244,17 +289,47 @@ export class TabelasComponent implements OnInit, OnDestroy {
     }
   }
 
+  updateConfirmedCount(): void {
+    if (this.card) {
+      this.confirmedCount = this.card.cells.filter(c => c.confirmed).length;
+    }
+  }
+
+  checkBingoReady(): void {
+    if (this.card) {
+      this.canClaimBingo = this.card.cells.every(c => c.confirmed) && !this.card.completed;
+    }
+  }
+
   onCellClick(cell: CardCell): void {
     if (!this.card) return;
     this.cardService.confirmCell(this.card.id, cell.id).subscribe({
       next: (res) => {
-        // Update cell to confirmed
         this.card!.cells = this.card!.cells.map(c =>
           c.id === cell.id ? { ...c, confirmed: true } : c
         );
-        if (res.complete) {
-          this.card!.completed = true;
-          this.loadRanking(this.card!.gameId);
+        this.updateConfirmedCount();
+        this.checkBingoReady();
+      }
+    });
+  }
+
+  onClaimBingo(): void {
+    if (!this.game || !this.canClaimBingo) return;
+    this.claimingBingo = true;
+    this.gameService.claimBingo(this.game.id).subscribe({
+      next: (res) => {
+        this.claimingBingo = false;
+        this.canClaimBingo = false;
+        if (this.card) this.card.completed = true;
+        this.bingoMessage = res.message || 'Parabéns! Você completou o BINGO!';
+        this.loadRanking(this.game!.id);
+      },
+      error: (err) => {
+        this.claimingBingo = false;
+        if (err.error?.alreadyClaimed) {
+          this.bingoMessage = 'Você já registrou seu BINGO!';
+          this.canClaimBingo = false;
         }
       }
     });

@@ -446,16 +446,7 @@ app.post('/api/cards/:cardId/confirm/:cellId', authMiddleware, async (req, res) 
     const confirmedCount = parseInt(confirmed.rows[0].count);
     const isComplete = confirmedCount === 25;
 
-    if (isComplete) {
-      const gameId = card.rows[0].game_id;
-      const winnersCount = await query('SELECT COUNT(*) as count FROM winners WHERE game_id = $1', [gameId]);
-      const rank = parseInt(winnersCount.rows[0].count) + 1;
-
-      if (rank <= 5) {
-        await query('UPDATE bingo_cards SET completed = true, completed_at = NOW(), completion_rank = $1 WHERE id = $2', [rank, cardId]);
-        await query('INSERT INTO winners (game_id, user_id, rank, completed_at) VALUES ($1, $2, $3, NOW())', [gameId, user.rows[0].id, rank]);
-      }
-    }
+    // Winner registration now happens via BINGO button claim
 
     res.json({ confirmed: true, complete: isComplete, confirmedCount });
   } catch (err: any) {
@@ -500,6 +491,54 @@ app.get('/api/games/:gameId/poll', authMiddleware, async (req, res) => {
       status: game.rows[0].status,
       drawnNumbers: game.rows[0].drawn_numbers || [],
       winners: winners.rows
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// BINGO CLAIM - player clicks BINGO button when they complete their card
+app.post('/api/games/:gameId/bingo', authMiddleware, async (req, res) => {
+  try {
+    const email = (req as any).userEmail;
+    const gameId = req.params.gameId;
+
+    const user = await query('SELECT id, name FROM users WHERE email = $1', [email]);
+    if (user.rows.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+    const userId = user.rows[0].id;
+
+    const card = await query('SELECT id, completed FROM bingo_cards WHERE game_id = $1 AND user_id = $2', [gameId, userId]);
+    if (card.rows.length === 0) return res.status(404).json({ error: 'Cartela não encontrada' });
+
+    // Check all 25 cells are confirmed
+    const confirmed = await query('SELECT COUNT(*) as count FROM card_cells WHERE card_id = $1 AND confirmed = true', [card.rows[0].id]);
+    if (parseInt(confirmed.rows[0].count) !== 25) {
+      return res.status(400).json({ error: 'Cartela não está completa' });
+    }
+
+    // Check if already claimed
+    const existingWinner = await query('SELECT id FROM winners WHERE game_id = $1 AND user_id = $2', [gameId, userId]);
+    if (existingWinner.rows.length > 0) {
+      return res.json({ alreadyClaimed: true, message: 'Você já registrou seu BINGO!' });
+    }
+
+    // Check max 5 winners
+    const winnersCount = await query('SELECT COUNT(*) as count FROM winners WHERE game_id = $1', [gameId]);
+    const rank = parseInt(winnersCount.rows[0].count) + 1;
+    if (rank > 5) {
+      return res.status(400).json({ error: 'Já temos 5 ganhadores' });
+    }
+
+    // Record the exact timestamp of the BINGO claim
+    const now = new Date().toISOString();
+    await query('UPDATE bingo_cards SET completed = true, completed_at = $1, completion_rank = $2 WHERE id = $3', [now, rank, card.rows[0].id]);
+    await query('INSERT INTO winners (game_id, user_id, rank, completed_at) VALUES ($1, $2, $3, $4)', [gameId, userId, rank, now]);
+
+    res.json({
+      success: true,
+      rank,
+      completedAt: now,
+      message: `Parabéns! Você ficou em ${rank}º lugar!`
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
