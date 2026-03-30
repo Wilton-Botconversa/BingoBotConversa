@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 import { query, initDB } from './_lib/db';
 import { generateToken, authMiddleware, adminMiddleware } from './_lib/jwt';
 import { generateCardCells } from './_lib/card-generator';
@@ -78,27 +79,25 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       const expiry = new Date(Date.now() + 3600000).toISOString(); // 1 hour
       await query('UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE email = $3', [token, expiry, email]);
 
-      // Send email via Resend
+      // Send email via Gmail SMTP
       const appUrl = process.env.APP_URL || 'https://bingo-botconversa.vercel.app';
       const resetLink = `${appUrl}/reset-password?token=${token}`;
 
       try {
-        const response = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            from: 'Bingo Botconversa <onboarding@resend.dev>',
-            to: [email],
-            subject: 'Recuperação de Senha - Bingo',
-            html: `<h2>Recuperação de Senha</h2><p>Clique no link abaixo para redefinir sua senha:</p><p><a href="${resetLink}" style="background:#9C27B0;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Redefinir Senha</a></p><p>Este link expira em 1 hora.</p><p>Se você não solicitou a recuperação, ignore este email.</p>`
-          })
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.GMAIL_USER,
+            pass: process.env.GMAIL_APP_PASSWORD
+          }
         });
-        if (!response.ok) {
-          console.warn('Resend API error:', await response.text());
-        }
+
+        await transporter.sendMail({
+          from: `"Bingo Botconversa" <${process.env.GMAIL_USER}>`,
+          to: email,
+          subject: 'Recuperação de Senha - Bingo',
+          html: `<h2>Recuperação de Senha</h2><p>Clique no link abaixo para redefinir sua senha:</p><p><a href="${resetLink}" style="background:#9C27B0;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Redefinir Senha</a></p><p>Este link expira em 1 hora.</p><p>Se você não solicitou a recuperação, ignore este email.</p>`
+        });
       } catch (emailErr) {
         console.warn('Failed to send email:', emailErr);
       }
