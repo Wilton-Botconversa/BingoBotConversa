@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+const nodemailer = require('nodemailer');
 import { query, initDB } from './_lib/db';
 import { generateToken, authMiddleware, adminMiddleware } from './_lib/jwt';
 import { generateCardCells } from './_lib/card-generator';
@@ -82,29 +83,30 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       const appUrl = process.env.APP_URL || 'https://bingo-botconversa.vercel.app';
       const resetLink = `${appUrl}/reset-password?token=${token}`;
 
-      try {
-        const transporter = nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-            user: process.env.GMAIL_USER,
-            pass: process.env.GMAIL_APP_PASSWORD
-          }
-        });
+      const nodemailer = require('nodemailer');
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        auth: {
+          user: process.env.GMAIL_USER || '',
+          pass: process.env.GMAIL_APP_PASSWORD || ''
+        }
+      });
 
-        await transporter.sendMail({
-          from: `"Bingo Botconversa" <${process.env.GMAIL_USER}>`,
-          to: email,
-          subject: 'Recuperação de Senha - Bingo',
-          html: `<h2>Recuperação de Senha</h2><p>Clique no link abaixo para redefinir sua senha:</p><p><a href="${resetLink}" style="background:#9C27B0;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Redefinir Senha</a></p><p>Este link expira em 1 hora.</p><p>Se você não solicitou a recuperação, ignore este email.</p>`
-        });
-      } catch (emailErr) {
-        console.warn('Failed to send email:', emailErr);
-      }
+      const info = await transporter.sendMail({
+        from: `"Bingo Botconversa" <${process.env.GMAIL_USER}>`,
+        to: email,
+        subject: 'Recuperação de Senha - Bingo',
+        html: `<h2>Recuperação de Senha</h2><p>Clique no link abaixo para redefinir sua senha:</p><p><a href="${resetLink}" style="background:#9C27B0;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Redefinir Senha</a></p><p>Este link expira em 1 hora.</p><p>Se você não solicitou a recuperação, ignore este email.</p>`
+      });
+      console.log('Email sent:', info.response);
     }
 
-    res.json({ message: 'Se o email estiver cadastrado, você receberá um link de recuperação' });
+    return res.json({ message: 'Se o email estiver cadastrado, você receberá um link de recuperação' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error('Forgot password error:', err);
+    return res.json({ message: 'Se o email estiver cadastrado, você receberá um link de recuperação' });
   }
 });
 
