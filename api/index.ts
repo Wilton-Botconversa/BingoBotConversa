@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
 import { query, initDB } from './_lib/db';
 import { generateToken, authMiddleware, adminMiddleware } from './_lib/jwt';
 import { generateCardCells } from './_lib/card-generator';
