@@ -70,7 +70,7 @@ import { User } from '../../../core/models/user.model';
       border-radius: 16px;
       padding: 24px 32px;
       box-shadow: 0 1px 8px rgba(0,0,0,0.06);
-      max-width: 900px;
+      max-width: 1100px;
       margin: 0 auto;
     }
     .card-header {
@@ -83,7 +83,6 @@ import { User } from '../../../core/models/user.model';
     .users-table {
       width: 100%;
       border-collapse: collapse;
-      table-layout: fixed;
     }
     .users-table th {
       text-align: left;
@@ -93,30 +92,16 @@ import { User } from '../../../core/models/user.model';
       color: #888;
       border-bottom: 2px solid #eee;
     }
-    .users-table th:nth-child(1) { width: 20%; }
-    .users-table th:nth-child(2) { width: 28%; }
-    .users-table th:nth-child(3) { width: 18%; }
-    .users-table th:nth-child(4) { width: 10%; }
-    .users-table th:nth-child(5) { width: 24%; }
     .users-table td {
       padding: 12px;
       font-size: 14px;
       border-bottom: 1px solid #f0f0f0;
       vertical-align: middle;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
     .user-cell {
       display: flex;
       align-items: center;
       gap: 12px;
-      overflow: hidden;
-    }
-    .user-cell span {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
     .avatar {
       width: 36px;

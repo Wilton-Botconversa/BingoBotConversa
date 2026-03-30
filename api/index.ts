@@ -176,6 +176,59 @@ app.put('/api/users/me', authMiddleware, async (req, res) => {
   }
 });
 
+app.post('/api/users/me/photo', authMiddleware, async (req, res) => {
+  try {
+    const email = (req as any).userEmail;
+    const chunks: Buffer[] = [];
+
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', async () => {
+      try {
+        const body = Buffer.concat(chunks);
+        const contentType = req.headers['content-type'] || '';
+
+        // Handle multipart form data manually (simple parser)
+        if (contentType.includes('multipart/form-data')) {
+          const boundary = contentType.split('boundary=')[1];
+          const bodyStr = body.toString('latin1');
+          const parts = bodyStr.split('--' + boundary);
+
+          for (const part of parts) {
+            if (part.includes('filename=')) {
+              const headerEnd = part.indexOf('\r\n\r\n');
+              if (headerEnd === -1) continue;
+              const fileData = part.substring(headerEnd + 4, part.lastIndexOf('\r\n'));
+              const fileBuffer = Buffer.from(fileData, 'latin1');
+
+              // Detect mime type from headers
+              const contentTypeMatch = part.match(/Content-Type:\s*(\S+)/i);
+              const mimeType = contentTypeMatch ? contentTypeMatch[1] : 'image/jpeg';
+
+              const base64 = fileBuffer.toString('base64');
+              const dataUrl = `data:${mimeType};base64,${base64}`;
+
+              const result = await query(
+                `UPDATE users SET profile_photo_url = $1 WHERE email = $2
+                 RETURNING id, name, email, phone, profile_photo_url as "profilePhotoUrl", role`,
+                [dataUrl, email]
+              );
+
+              return res.json(result.rows[0]);
+            }
+          }
+          return res.status(400).json({ error: 'Nenhum arquivo encontrado' });
+        } else {
+          return res.status(400).json({ error: 'Content-Type deve ser multipart/form-data' });
+        }
+      } catch (err: any) {
+        return res.status(500).json({ error: err.message });
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/users/me/change-password', authMiddleware, async (req, res) => {
   try {
     const email = (req as any).userEmail;
@@ -408,7 +461,7 @@ app.post('/api/admin/games/:id/draw', authMiddleware, adminMiddleware, async (re
     const number = remaining[Math.floor(Math.random() * remaining.length)];
     drawn.push(number);
 
-    await query('UPDATE games SET drawn_numbers = $1 WHERE id = $2', [drawn, gameId]);
+    await query('UPDATE games SET drawn_numbers = $1, last_draw_at = NOW() WHERE id = $2', [drawn, gameId]);
 
     // Mark cells as drawn
     await query(
@@ -597,8 +650,44 @@ app.get('/api/games/:gameId/poll', authMiddleware, async (req, res) => {
   try {
     const gameId = req.params.gameId;
 
-    const game = await query('SELECT status, drawn_numbers FROM games WHERE id = $1', [gameId]);
+    const game = await query('SELECT * FROM games WHERE id = $1', [gameId]);
     if (game.rows.length === 0) return res.status(404).json({ error: 'Jogo não encontrado' });
+
+    const g = game.rows[0];
+
+    // Auto-draw logic for AUTOMATIC mode
+    if (g.status === 'ACTIVE' && g.draw_mode === 'AUTOMATIC') {
+      const drawn: number[] = g.drawn_numbers || [];
+      const lastDrawTime = g.last_draw_at ? new Date(g.last_draw_at).getTime() : (g.started_at ? new Date(g.started_at).getTime() : 0);
+      const interval = (g.draw_interval_seconds || 5) * 1000;
+      const now = Date.now();
+
+      if (now - lastDrawTime >= interval && drawn.length < 75) {
+        // Draw a number
+        const drawnSet = new Set(drawn);
+        const remaining: number[] = [];
+        for (let i = 1; i <= 75; i++) {
+          if (!drawnSet.has(i)) remaining.push(i);
+        }
+
+        if (remaining.length > 0) {
+          const number = remaining[Math.floor(Math.random() * remaining.length)];
+          drawn.push(number);
+          await query('UPDATE games SET drawn_numbers = $1, last_draw_at = NOW() WHERE id = $2', [drawn, gameId]);
+          await query(
+            `UPDATE card_cells SET drawn = true WHERE number = $1 AND card_id IN (SELECT id FROM bingo_cards WHERE game_id = $2)`,
+            [number, gameId]
+          );
+        }
+
+        if (drawn.length >= 75) {
+          await query("UPDATE games SET status = 'FINISHED', finished_at = NOW() WHERE id = $1", [gameId]);
+        }
+      }
+    }
+
+    // Refetch game after potential auto-draw
+    const updatedGame = await query('SELECT status, drawn_numbers FROM games WHERE id = $1', [gameId]);
 
     const winners = await query(
       `SELECT w.rank, w.user_id as "userId", u.name, u.profile_photo_url as "profilePhotoUrl", w.completed_at as "completedAt"
@@ -608,8 +697,8 @@ app.get('/api/games/:gameId/poll', authMiddleware, async (req, res) => {
     );
 
     res.json({
-      status: game.rows[0].status,
-      drawnNumbers: game.rows[0].drawn_numbers || [],
+      status: updatedGame.rows[0].status,
+      drawnNumbers: updatedGame.rows[0].drawn_numbers || [],
       winners: winners.rows
     });
   } catch (err: any) {

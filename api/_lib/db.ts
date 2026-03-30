@@ -24,7 +24,7 @@ export async function initDB() {
       password VARCHAR(255) NOT NULL,
       name VARCHAR(200) NOT NULL,
       phone VARCHAR(20),
-      profile_photo_url VARCHAR(500),
+      profile_photo_url TEXT,
       role VARCHAR(10) NOT NULL DEFAULT 'USER',
       reset_token VARCHAR(255),
       reset_token_expiry TIMESTAMP,
@@ -36,6 +36,7 @@ export async function initDB() {
       status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
       draw_mode VARCHAR(10) NOT NULL DEFAULT 'MANUAL',
       draw_interval_seconds INT DEFAULT 5,
+      last_draw_at TIMESTAMP,
       drawn_numbers INT[] DEFAULT '{}',
       created_at TIMESTAMP DEFAULT NOW(),
       started_at TIMESTAMP,
@@ -77,6 +78,11 @@ export async function initDB() {
       rank INT NOT NULL,
       completed_at TIMESTAMP
     );
+
+    -- Add last_draw_at column if it doesn't exist (for existing databases)
+    ALTER TABLE games ADD COLUMN IF NOT EXISTS last_draw_at TIMESTAMP;
+    -- Expand profile_photo_url to TEXT for base64 data URLs
+    ALTER TABLE users ALTER COLUMN profile_photo_url TYPE TEXT;
   `);
 }
 

@@ -28,7 +28,7 @@ import { RankingEntry } from '../../../core/models/ranking.model';
       </div>
       <div class="form-group" *ngIf="drawMode === 'AUTOMATIC'">
         <label>Intervalo entre números (segundos)</label>
-        <input type="number" [(ngModel)]="drawInterval" min="5" max="10" />
+        <input type="number" [(ngModel)]="drawInterval" min="1" max="10" />
       </div>
       <button class="btn-create" (click)="createGame()" [disabled]="creating">
         {{ creating ? 'Criando...' : 'Criar Jogo' }}
@@ -156,7 +156,7 @@ export class GameControlComponent implements OnInit, OnDestroy {
   winners: RankingEntry[] = [];
   lastDrawnNumber: number | null = null;
   drawMode = 'MANUAL';
-  drawInterval = 5;
+  drawInterval = 3;
   creating = false;
   starting = false;
   drawing = false;
@@ -223,7 +223,7 @@ export class GameControlComponent implements OnInit, OnDestroy {
           if (data.status === 'FINISHED') this.stopPolling();
         }
       });
-    }, 1000);
+    }, 500);
   }
 
   stopPolling(): void {

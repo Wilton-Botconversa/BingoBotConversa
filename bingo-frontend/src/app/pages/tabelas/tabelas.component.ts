@@ -279,7 +279,7 @@ export class TabelasComponent implements OnInit, OnDestroy {
           if (data.status === 'FINISHED') this.stopPolling();
         }
       });
-    }, 1000); // Poll every 1 second for faster updates
+    }, 500); // Poll every 500ms for faster updates
   }
 
   stopPolling(): void {
