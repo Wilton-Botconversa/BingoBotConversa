@@ -28,3 +28,5 @@ set-env.ps1
 
 # Logs
 *.log
+
+.vercel
