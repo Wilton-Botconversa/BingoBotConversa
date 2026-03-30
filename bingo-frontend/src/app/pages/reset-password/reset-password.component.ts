@@ -24,12 +24,18 @@ import { AuthService } from '../../core/services/auth.service';
 
           <div class="form-group">
             <label>Nova Senha</label>
-            <input type="password" [(ngModel)]="password" placeholder="Minimo 6 caracteres" />
+            <div class="password-wrapper">
+              <input [type]="showPassword ? 'text' : 'password'" [(ngModel)]="password" placeholder="Minimo 6 caracteres" />
+              <span class="eye-toggle" (click)="showPassword = !showPassword">{{ showPassword ? '🙈' : '👁️' }}</span>
+            </div>
           </div>
 
           <div class="form-group">
             <label>Confirmar Senha</label>
-            <input type="password" [(ngModel)]="confirmPassword" placeholder="Repita a senha" />
+            <div class="password-wrapper">
+              <input [type]="showConfirm ? 'text' : 'password'" [(ngModel)]="confirmPassword" placeholder="Repita a senha" />
+              <span class="eye-toggle" (click)="showConfirm = !showConfirm">{{ showConfirm ? '🙈' : '👁️' }}</span>
+            </div>
           </div>
 
           <button class="btn-primary" (click)="onSubmit()" [disabled]="loading">
@@ -51,6 +57,9 @@ import { AuthService } from '../../core/services/auth.service';
     .btn-primary { width: 100%; padding: 14px; background: #1a237e; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; }
     .btn-primary:hover { background: #0d1757; }
     .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .password-wrapper { position: relative; }
+    .password-wrapper input { width: 100%; padding-right: 40px; box-sizing: border-box; }
+    .eye-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 18px; user-select: none; }
     .error { background: #ffebee; color: #c62828; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
     .success { background: #E8F5E9; color: #2E7D32; padding: 16px; border-radius: 8px; text-align: center; font-size: 14px; }
     .back-link { display: block; margin-top: 12px; color: #9C27B0; font-weight: 600; }
@@ -63,6 +72,8 @@ export class ResetPasswordComponent implements OnInit {
   loading = false;
   error = '';
   success = '';
+  showPassword = false;
+  showConfirm = false;
 
   constructor(
     private route: ActivatedRoute,

@@ -23,7 +23,10 @@ import { CommonModule } from '@angular/common';
 
         <div class="form-group">
           <label>Senha</label>
-          <input type="password" [(ngModel)]="password" placeholder="Sua senha" />
+          <div class="password-wrapper">
+            <input [type]="showPassword ? 'text' : 'password'" [(ngModel)]="password" placeholder="Sua senha" />
+            <span class="eye-toggle" (click)="showPassword = !showPassword">{{ showPassword ? '🙈' : '👁️' }}</span>
+          </div>
         </div>
 
         <a routerLink="/forgot-password" class="forgot-link">Esqueceu a senha?</a>
@@ -104,6 +107,26 @@ import { CommonModule } from '@angular/common';
       font-size: 14px;
     }
 
+    .password-wrapper {
+      position: relative;
+
+      input {
+        width: 100%;
+        padding-right: 40px;
+        box-sizing: border-box;
+      }
+    }
+
+    .eye-toggle {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      font-size: 18px;
+      user-select: none;
+    }
+
     .register-link {
       text-align: center;
       margin-top: 20px;
@@ -126,6 +149,7 @@ export class LoginComponent {
   password = '';
   error = '';
   loading = false;
+  showPassword = false;
 
   constructor(private authService: AuthService, private router: Router) {}
 
