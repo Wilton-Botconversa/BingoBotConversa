@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { query, initDB } from './_lib/db';
 import { generateToken, authMiddleware, adminMiddleware } from './_lib/jwt';
 import { generateCardCells } from './_lib/card-generator';
@@ -68,8 +69,71 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.post('/api/auth/forgot-password', async (req, res) => {
-  // Always return 200 to not leak email existence
-  res.json({ message: 'Se o email existir, um link de recuperação será enviado' });
+  try {
+    const { email } = req.body;
+    const user = await query('SELECT id FROM users WHERE email = $1', [email]);
+
+    if (user.rows.length > 0) {
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiry = new Date(Date.now() + 3600000).toISOString(); // 1 hour
+      await query('UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE email = $3', [token, expiry, email]);
+
+      // Send email via Resend
+      const appUrl = process.env.APP_URL || 'https://bingo-botconversa.vercel.app';
+      const resetLink = `${appUrl}/reset-password?token=${token}`;
+
+      try {
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: 'Bingo Botconversa <onboarding@resend.dev>',
+            to: [email],
+            subject: 'Recuperação de Senha - Bingo',
+            html: `<h2>Recuperação de Senha</h2><p>Clique no link abaixo para redefinir sua senha:</p><p><a href="${resetLink}" style="background:#9C27B0;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Redefinir Senha</a></p><p>Este link expira em 1 hora.</p><p>Se você não solicitou a recuperação, ignore este email.</p>`
+          })
+        });
+        if (!response.ok) {
+          console.warn('Resend API error:', await response.text());
+        }
+      } catch (emailErr) {
+        console.warn('Failed to send email:', emailErr);
+      }
+    }
+
+    res.json({ message: 'Se o email estiver cadastrado, você receberá um link de recuperação' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ error: 'Token e senha são obrigatórios' });
+
+    const user = await query(
+      'SELECT id FROM users WHERE reset_token = $1 AND reset_token_expiry > NOW()',
+      [token]
+    );
+
+    if (user.rows.length === 0) {
+      return res.status(400).json({ error: 'Token inválido ou expirado' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await query(
+      'UPDATE users SET password = $1, reset_token = NULL, reset_token_expiry = NULL WHERE id = $2',
+      [hashedPassword, user.rows[0].id]
+    );
+
+    res.json({ message: 'Senha redefinida com sucesso' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ===================== USER PROFILE =====================
@@ -138,6 +202,33 @@ app.post('/api/admin/users/:userId/toggle-admin', authMiddleware, adminMiddlewar
       [newRole, userId]
     );
     res.json(result.rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/admin/users/:userId', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const email = (req as any).userEmail;
+
+    // Prevent self-deletion
+    const self = await query('SELECT id FROM users WHERE email = $1', [email]);
+    if (self.rows[0].id === parseInt(userId)) {
+      return res.status(400).json({ error: 'Você não pode excluir a si mesmo' });
+    }
+
+    const user = await query('SELECT id FROM users WHERE id = $1', [userId]);
+    if (user.rows.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+    // Delete related data first (foreign keys)
+    await query('DELETE FROM card_cells WHERE card_id IN (SELECT id FROM bingo_cards WHERE user_id = $1)', [userId]);
+    await query('DELETE FROM winners WHERE user_id = $1', [userId]);
+    await query('DELETE FROM bingo_cards WHERE user_id = $1', [userId]);
+    await query('DELETE FROM participants WHERE user_id = $1', [userId]);
+    await query('DELETE FROM users WHERE id = $1', [userId]);
+
+    res.json({ deleted: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

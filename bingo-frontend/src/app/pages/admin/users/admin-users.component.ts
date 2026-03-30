@@ -41,9 +41,12 @@ import { User } from '../../../core/models/user.model';
                 {{ user.role }}
               </span>
             </td>
-            <td>
+            <td class="action-cell">
               <button class="btn-toggle" [class.btn-remove]="user.role === 'ADMIN'" [class.btn-promote]="user.role === 'USER'" (click)="toggleAdmin(user)">
                 {{ user.role === 'ADMIN' ? 'Remover Admin' : 'Tornar Admin' }}
+              </button>
+              <button class="btn-delete" (click)="deleteUser(user)">
+                Excluir
               </button>
             </td>
           </tr>
@@ -157,6 +160,25 @@ import { User } from '../../../core/models/user.model';
     .btn-remove:hover {
       background: #c62828;
     }
+    .action-cell {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .btn-delete {
+      padding: 6px 16px;
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      background: #333;
+      color: white;
+      transition: background 0.2s;
+    }
+    .btn-delete:hover {
+      background: #000;
+    }
     .empty {
       text-align: center;
       color: #999;
@@ -199,6 +221,16 @@ export class AdminUsersComponent implements OnInit {
         if (idx >= 0) this.users[idx] = updated;
       },
       error: (err) => this.error = err.error?.error || 'Erro ao alterar permissão'
+    });
+  }
+
+  deleteUser(user: User): void {
+    if (!confirm(`Tem certeza que deseja excluir ${user.name}? Esta ação não pode ser desfeita.`)) return;
+    this.adminService.deleteUser(user.id).subscribe({
+      next: () => {
+        this.users = this.users.filter(u => u.id !== user.id);
+      },
+      error: (err) => this.error = err.error?.error || 'Erro ao excluir usuário'
     });
   }
 }

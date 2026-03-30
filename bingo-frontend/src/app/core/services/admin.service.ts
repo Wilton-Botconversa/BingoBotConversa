@@ -17,4 +17,8 @@ export class AdminService {
   toggleAdmin(userId: number): Observable<User> {
     return this.http.post<User>(`${this.API}/admin/users/${userId}/toggle-admin`, {});
   }
+
+  deleteUser(userId: number): Observable<any> {
+    return this.http.delete(`${this.API}/admin/users/${userId}`);
+  }
 }

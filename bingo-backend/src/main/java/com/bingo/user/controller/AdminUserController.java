@@ -7,6 +7,7 @@ import com.bingo.user.repository.UserRepository;
 import com.bingo.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -40,6 +41,17 @@ public class AdminUserController {
 
         userRepository.save(user);
         return ResponseEntity.ok(toDto(user));
+    }
+
+    @DeleteMapping("/{userId}")
+    public ResponseEntity<Map<String, Boolean>> deleteUser(@PathVariable Long userId, Authentication auth) {
+        User self = userRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado"));
+        if (self.getId().equals(userId)) {
+            throw new IllegalArgumentException("Você não pode excluir a si mesmo");
+        }
+        userRepository.deleteById(userId);
+        return ResponseEntity.ok(Map.of("deleted", true));
     }
 
     private UserProfileDto toDto(User user) {
