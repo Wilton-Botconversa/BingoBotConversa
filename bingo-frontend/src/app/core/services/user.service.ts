@@ -18,6 +18,10 @@ export class UserService {
     return this.http.put<User>(`${this.API}/me`, data);
   }
 
+  changePassword(currentPassword: string, newPassword: string): Observable<any> {
+    return this.http.post(`${this.API}/me/change-password`, { currentPassword, newPassword });
+  }
+
   uploadPhoto(file: File): Observable<User> {
     const formData = new FormData();
     formData.append('file', file);

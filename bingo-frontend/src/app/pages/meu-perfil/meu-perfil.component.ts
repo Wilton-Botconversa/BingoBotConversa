@@ -47,6 +47,32 @@ import { User } from '../../core/models/user.model';
       <button class="btn-primary" (click)="onUpdate()" [disabled]="loading">
         {{ loading ? 'Atualizando...' : 'Atualizar' }}
       </button>
+
+      <hr class="divider" />
+
+      <h2 class="section-title">Alterar Senha</h2>
+
+      <div class="form-group">
+        <label>Senha Atual</label>
+        <input type="password" [(ngModel)]="currentPassword" placeholder="Senha atual" />
+      </div>
+
+      <div class="form-group">
+        <label>Nova Senha</label>
+        <input type="password" [(ngModel)]="newPassword" placeholder="Mínimo 6 caracteres" />
+      </div>
+
+      <div class="form-group">
+        <label>Confirmar Nova Senha</label>
+        <input type="password" [(ngModel)]="confirmNewPassword" placeholder="Repita a nova senha" />
+      </div>
+
+      <div class="success" *ngIf="passwordSuccess">Senha alterada com sucesso!</div>
+      <div class="error" *ngIf="passwordError">{{ passwordError }}</div>
+
+      <button class="btn-primary" (click)="onChangePassword()" [disabled]="changingPassword">
+        {{ changingPassword ? 'Alterando...' : 'Alterar Senha' }}
+      </button>
     </div>
   `,
   styles: [`
@@ -133,6 +159,17 @@ import { User } from '../../core/models/user.model';
       margin-bottom: 16px;
       font-size: 14px;
     }
+    .divider {
+      border: none;
+      border-top: 1px solid #eee;
+      margin: 32px 0;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: #333;
+    }
   `]
 })
 export class MeuPerfilComponent implements OnInit {
@@ -140,6 +177,12 @@ export class MeuPerfilComponent implements OnInit {
   loading = false;
   success = false;
   error = '';
+  currentPassword = '';
+  newPassword = '';
+  confirmNewPassword = '';
+  changingPassword = false;
+  passwordSuccess = false;
+  passwordError = '';
 
   constructor(private userService: UserService) {}
 
@@ -169,6 +212,35 @@ export class MeuPerfilComponent implements OnInit {
       error: (err) => {
         this.error = err.error?.error || 'Erro ao atualizar perfil';
         this.loading = false;
+      }
+    });
+  }
+
+  onChangePassword(): void {
+    this.passwordError = '';
+    this.passwordSuccess = false;
+
+    if (this.newPassword.length < 6) {
+      this.passwordError = 'A nova senha deve ter no mínimo 6 caracteres';
+      return;
+    }
+    if (this.newPassword !== this.confirmNewPassword) {
+      this.passwordError = 'As senhas não coincidem';
+      return;
+    }
+
+    this.changingPassword = true;
+    this.userService.changePassword(this.currentPassword, this.newPassword).subscribe({
+      next: () => {
+        this.passwordSuccess = true;
+        this.changingPassword = false;
+        this.currentPassword = '';
+        this.newPassword = '';
+        this.confirmNewPassword = '';
+      },
+      error: (err) => {
+        this.passwordError = err.error?.error || 'Erro ao alterar senha';
+        this.changingPassword = false;
       }
     });
   }

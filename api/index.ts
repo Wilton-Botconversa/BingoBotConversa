@@ -176,6 +176,35 @@ app.put('/api/users/me', authMiddleware, async (req, res) => {
   }
 });
 
+app.post('/api/users/me/change-password', authMiddleware, async (req, res) => {
+  try {
+    const email = (req as any).userEmail;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Senha atual e nova senha são obrigatórias' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'A nova senha deve ter no mínimo 6 caracteres' });
+    }
+
+    const user = await query('SELECT id, password FROM users WHERE email = $1', [email]);
+    if (user.rows.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+    const valid = await bcrypt.compare(currentPassword, user.rows[0].password);
+    if (!valid) {
+      return res.status(400).json({ error: 'Senha atual incorreta' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, user.rows[0].id]);
+
+    res.json({ message: 'Senha alterada com sucesso' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ===================== ADMIN: USERS =====================
 
 app.get('/api/admin/users', authMiddleware, adminMiddleware, async (_req, res) => {
