@@ -26,7 +26,10 @@ import { AuthService } from '../../core/services/auth.service';
             <label>Nova Senha</label>
             <div class="password-wrapper">
               <input [type]="showPassword ? 'text' : 'password'" [(ngModel)]="password" placeholder="Minimo 6 caracteres" />
-              <span class="eye-toggle" (click)="showPassword = !showPassword">{{ showPassword ? '🙈' : '👁️' }}</span>
+              <svg class="eye-toggle" (click)="showPassword = !showPassword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path *ngIf="!showPassword" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle *ngIf="!showPassword" cx="12" cy="12" r="3" />
+                <path *ngIf="showPassword" d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" /><line *ngIf="showPassword" x1="1" y1="1" x2="23" y2="23" />
+              </svg>
             </div>
           </div>
 
@@ -34,7 +37,10 @@ import { AuthService } from '../../core/services/auth.service';
             <label>Confirmar Senha</label>
             <div class="password-wrapper">
               <input [type]="showConfirm ? 'text' : 'password'" [(ngModel)]="confirmPassword" placeholder="Repita a senha" />
-              <span class="eye-toggle" (click)="showConfirm = !showConfirm">{{ showConfirm ? '🙈' : '👁️' }}</span>
+              <svg class="eye-toggle" (click)="showConfirm = !showConfirm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path *ngIf="!showConfirm" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle *ngIf="!showConfirm" cx="12" cy="12" r="3" />
+                <path *ngIf="showConfirm" d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" /><line *ngIf="showConfirm" x1="1" y1="1" x2="23" y2="23" />
+              </svg>
             </div>
           </div>
 
@@ -59,7 +65,8 @@ import { AuthService } from '../../core/services/auth.service';
     .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
     .password-wrapper { position: relative; }
     .password-wrapper input { width: 100%; padding-right: 40px; box-sizing: border-box; }
-    .eye-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 18px; user-select: none; }
+    .eye-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; width: 20px; height: 20px; color: #888; }
+    .eye-toggle:hover { color: #333; }
     .error { background: #ffebee; color: #c62828; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
     .success { background: #E8F5E9; color: #2E7D32; padding: 16px; border-radius: 8px; text-align: center; font-size: 14px; }
     .back-link { display: block; margin-top: 12px; color: #9C27B0; font-weight: 600; }
