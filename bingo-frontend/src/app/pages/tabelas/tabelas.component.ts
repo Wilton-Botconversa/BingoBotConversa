@@ -253,12 +253,24 @@ export class TabelasComponent implements OnInit, OnDestroy {
       next: (game) => {
         this.game = game;
         if (game && (game.status === 'ACTIVE' || game.status === 'PAUSED' || game.status === 'PENDING')) {
-          this.loadCard(game.id);
+          // First poll to get latest state, then load card with synced data
+          this.gameService.pollGame(game.id).subscribe({
+            next: (data: any) => {
+              if (this.game) {
+                this.game.drawnNumbers = data.drawnNumbers;
+                this.game.status = data.status;
+                if (data.drawnNumbers?.length) {
+                  this.lastDrawnNumber = data.drawnNumbers[data.drawnNumbers.length - 1];
+                }
+              }
+              this.winners = data.winners || [];
+              // Now load card with updated drawnNumbers
+              this.loadCard(game.id);
+            },
+            error: () => this.loadCard(game.id)
+          });
           this.loadRanking(game.id);
           this.startPolling(game.id);
-          if (game.drawnNumbers?.length) {
-            this.lastDrawnNumber = game.drawnNumbers[game.drawnNumbers.length - 1];
-          }
         }
         this.loading = false;
       },
@@ -270,6 +282,14 @@ export class TabelasComponent implements OnInit, OnDestroy {
     this.cardService.getMyCard(gameId).subscribe({
       next: (card) => {
         this.card = card;
+        // Sync card cells with already drawn numbers
+        if (this.card && this.game?.drawnNumbers?.length) {
+          const drawnSet = new Set(this.game.drawnNumbers);
+          this.card.cells = this.card.cells.map(cell => ({
+            ...cell,
+            drawn: drawnSet.has(cell.number) ? true : cell.drawn
+          }));
+        }
         this.updateConfirmedCount();
         this.checkBingoReady();
       },
@@ -353,20 +373,27 @@ export class TabelasComponent implements OnInit, OnDestroy {
 
   onClaimBingo(): void {
     if (!this.game || !this.canClaimBingo) return;
-    this.claimingBingo = true;
+
+    // Instant feedback - show congrats immediately
+    const now = new Date();
+    const h = now.getHours().toString().padStart(2, '0');
+    const m = now.getMinutes().toString().padStart(2, '0');
+    const s = now.getSeconds().toString().padStart(2, '0');
+    const ms = now.getMilliseconds().toString().padStart(3, '0');
+    this.bingoMessage = `Parabéns! BINGO registrado às ${h}:${m}:${s}.${ms}!`;
+    this.canClaimBingo = false;
+    this.claimingBingo = false;
+    if (this.card) this.card.completed = true;
+
+    // Send to server in background
     this.gameService.claimBingo(this.game.id).subscribe({
       next: (res) => {
-        this.claimingBingo = false;
-        this.canClaimBingo = false;
-        if (this.card) this.card.completed = true;
-        this.bingoMessage = res.message || 'Parabéns! Você completou o BINGO!';
+        if (res.message) this.bingoMessage = res.message;
         this.loadRanking(this.game!.id);
       },
       error: (err) => {
-        this.claimingBingo = false;
         if (err.error?.alreadyClaimed) {
           this.bingoMessage = 'Você já registrou seu BINGO!';
-          this.canClaimBingo = false;
         }
       }
     });
