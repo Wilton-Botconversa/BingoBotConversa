@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { forkJoin } from 'rxjs';
 import { GameService } from '../../core/services/game.service';
 import { ParticipantService } from '../../core/services/participant.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -12,7 +13,9 @@ import { Game, Participant } from '../../core/models/game.model';
   template: `
     <h1 class="page-title">Escolha os participantes</h1>
 
-    <div class="card" *ngIf="game; else noGame">
+    <div class="loading" *ngIf="loading">Carregando...</div>
+
+    <div class="card" *ngIf="!loading && game; else noGame">
       <div class="card-header">
         <span class="count">Total de {{ participants.length }} participantes</span>
         <button class="btn-participar" (click)="onJoin()" *ngIf="!isParticipating && game.status === 'PENDING'" [disabled]="joining">
@@ -37,7 +40,7 @@ import { Game, Participant } from '../../core/models/game.model';
     </div>
 
     <ng-template #noGame>
-      <div class="card">
+      <div class="card" *ngIf="!loading">
         <p class="empty">Nenhum jogo ativo no momento.</p>
       </div>
     </ng-template>
@@ -155,6 +158,12 @@ import { Game, Participant } from '../../core/models/game.model';
       font-size: 15px;
       padding: 20px 0;
     }
+    .loading {
+      text-align: center;
+      color: #999;
+      font-size: 14px;
+      padding: 40px 0;
+    }
   `]
 })
 export class ParticipantesComponent implements OnInit {
@@ -162,6 +171,7 @@ export class ParticipantesComponent implements OnInit {
   participants: Participant[] = [];
   isParticipating = false;
   joining = false;
+  loading = true;
 
   constructor(
     private gameService: GameService,
@@ -178,27 +188,23 @@ export class ParticipantesComponent implements OnInit {
       next: (game) => {
         this.game = game;
         if (game) {
-          this.loadParticipants();
-          this.checkParticipation();
+          // Load participants and check participation in parallel
+          forkJoin({
+            participants: this.participantService.getParticipants(game.id),
+            participation: this.participantService.checkParticipation(game.id)
+          }).subscribe({
+            next: (result) => {
+              this.participants = result.participants;
+              this.isParticipating = result.participation.participating;
+              this.loading = false;
+            },
+            error: () => this.loading = false
+          });
+        } else {
+          this.loading = false;
         }
       },
-      error: () => this.game = null
-    });
-  }
-
-  loadParticipants(): void {
-    if (!this.game) return;
-    this.participantService.getParticipants(this.game.id).subscribe({
-      next: (list) => this.participants = list,
-      error: () => this.participants = []
-    });
-  }
-
-  checkParticipation(): void {
-    if (!this.game) return;
-    this.participantService.checkParticipation(this.game.id).subscribe({
-      next: (res) => this.isParticipating = res.participating,
-      error: () => this.isParticipating = false
+      error: () => { this.game = null; this.loading = false; }
     });
   }
 

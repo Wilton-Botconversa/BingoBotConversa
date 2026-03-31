@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { forkJoin } from 'rxjs';
 import { GameService } from '../../../core/services/game.service';
 import { ParticipantService } from '../../../core/services/participant.service';
 import { RankingBoardComponent } from '../../../shared/components/ranking-board/ranking-board.component';
@@ -205,12 +206,25 @@ export class GameControlComponent implements OnInit, OnDestroy {
       next: (game) => {
         this.game = game;
         if (game) {
-          this.loadParticipants();
-          this.loadRanking();
+          // Load participants, ranking, and poll in parallel
+          forkJoin({
+            participants: this.participantService.getParticipants(game.id),
+            ranking: this.gameService.getRanking(game.id),
+            poll: this.gameService.pollGame(game.id)
+          }).subscribe({
+            next: (result) => {
+              this.participants = result.participants;
+              this.winners = result.ranking || [];
+              if (this.game) {
+                this.game.drawnNumbers = result.poll.drawnNumbers;
+                this.game.status = result.poll.status;
+                if (result.poll.drawnNumbers?.length) {
+                  this.lastDrawnNumber = result.poll.drawnNumbers[result.poll.drawnNumbers.length - 1];
+                }
+              }
+            }
+          });
           this.startPolling(game.id);
-          if (game.drawnNumbers?.length) {
-            this.lastDrawnNumber = game.drawnNumbers[game.drawnNumbers.length - 1];
-          }
         }
       },
       error: () => this.game = null
