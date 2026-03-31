@@ -215,7 +215,10 @@ export class ParticipantesComponent implements OnInit {
       next: () => {
         this.isParticipating = true;
         this.joining = false;
-        this.loadParticipants();
+        // Reload participants list
+        this.participantService.getParticipants(this.game!.id).subscribe({
+          next: (list) => this.participants = list
+        });
       },
       error: () => this.joining = false
     });
