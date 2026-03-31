@@ -13,6 +13,7 @@ import { User } from '../../../core/models/user.model';
     <div class="card">
       <div class="card-header">
         <span class="count">Total de {{ users.length }} usuários</span>
+        <span class="loading-indicator" *ngIf="loading">Carregando...</span>
       </div>
 
       <table class="users-table" *ngIf="users.length > 0">
@@ -53,7 +54,7 @@ import { User } from '../../../core/models/user.model';
         </tbody>
       </table>
 
-      <p class="empty" *ngIf="users.length === 0">Nenhum usuário cadastrado.</p>
+      <p class="empty" *ngIf="users.length === 0 && !loading">Nenhum usuário cadastrado.</p>
     </div>
 
     <div class="error" *ngIf="error">{{ error }}</div>
@@ -184,6 +185,10 @@ import { User } from '../../../core/models/user.model';
       color: #999;
       padding: 20px;
     }
+    .loading-indicator {
+      font-size: 13px;
+      color: #999;
+    }
     .error {
       background: #ffebee;
       color: #c62828;
@@ -200,18 +205,33 @@ import { User } from '../../../core/models/user.model';
 export class AdminUsersComponent implements OnInit {
   users: User[] = [];
   error = '';
+  loading = true;
 
   constructor(private adminService: AdminService) {}
 
   ngOnInit(): void {
+    // Show cached data instantly while fetching fresh data
+    const cached = sessionStorage.getItem('bingo_users');
+    if (cached) {
+      this.users = JSON.parse(cached);
+      this.loading = false;
+    }
     this.loadUsers();
   }
 
   loadUsers(): void {
     this.adminService.getAllUsers().subscribe({
-      next: (users) => this.users = users,
-      error: () => this.error = 'Erro ao carregar usuários'
+      next: (users) => {
+        this.users = users;
+        this.loading = false;
+        sessionStorage.setItem('bingo_users', JSON.stringify(users));
+      },
+      error: () => { this.error = 'Erro ao carregar usuários'; this.loading = false; }
     });
+  }
+
+  private saveCache(): void {
+    sessionStorage.setItem('bingo_users', JSON.stringify(this.users));
   }
 
   toggleAdmin(user: User): void {
@@ -219,6 +239,7 @@ export class AdminUsersComponent implements OnInit {
       next: (updated) => {
         const idx = this.users.findIndex(u => u.id === updated.id);
         if (idx >= 0) this.users[idx] = updated;
+        this.saveCache();
       },
       error: (err) => this.error = err.error?.error || 'Erro ao alterar permissão'
     });
@@ -229,6 +250,7 @@ export class AdminUsersComponent implements OnInit {
     this.adminService.deleteUser(user.id).subscribe({
       next: () => {
         this.users = this.users.filter(u => u.id !== user.id);
+        this.saveCache();
       },
       error: (err) => this.error = err.error?.error || 'Erro ao excluir usuário'
     });
