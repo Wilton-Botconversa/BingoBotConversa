@@ -215,11 +215,38 @@ export class TabelasComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadGame();
+    // Re-poll immediately when tab becomes active
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
   }
 
   ngOnDestroy(): void {
     this.stopPolling();
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
   }
+
+  private onVisibilityChange = (): void => {
+    if (!document.hidden && this.game?.id) {
+      this.gameService.pollGame(this.game.id).subscribe({
+        next: (data: any) => {
+          if (this.game) {
+            this.game.drawnNumbers = data.drawnNumbers;
+            this.game.status = data.status;
+            if (data.drawnNumbers?.length) {
+              this.lastDrawnNumber = data.drawnNumbers[data.drawnNumbers.length - 1];
+            }
+            if (this.card) {
+              const drawnSet = new Set(data.drawnNumbers);
+              this.card.cells = this.card.cells.map(cell => ({
+                ...cell,
+                drawn: drawnSet.has(cell.number) ? true : cell.drawn
+              }));
+            }
+          }
+          this.winners = data.winners || [];
+        }
+      });
+    }
+  };
 
   loadGame(): void {
     this.gameService.getActiveGame().subscribe({
@@ -302,11 +329,21 @@ export class TabelasComponent implements OnInit, OnDestroy {
   }
 
   onCellClick(cell: CardCell): void {
-    if (!this.card) return;
+    if (!this.card || cell.confirmed) return;
+
+    // Optimistic update - turn green immediately
+    this.card.cells = this.card.cells.map(c =>
+      c.id === cell.id ? { ...c, confirmed: true } : c
+    );
+    this.updateConfirmedCount();
+    this.checkBingoReady();
+
+    // Then confirm on server
     this.cardService.confirmCell(this.card.id, cell.id).subscribe({
-      next: (res) => {
+      error: () => {
+        // Revert on error
         this.card!.cells = this.card!.cells.map(c =>
-          c.id === cell.id ? { ...c, confirmed: true } : c
+          c.id === cell.id ? { ...c, confirmed: false } : c
         );
         this.updateConfirmedCount();
         this.checkBingoReady();

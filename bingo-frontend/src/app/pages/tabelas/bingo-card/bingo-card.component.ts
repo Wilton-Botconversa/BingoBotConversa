@@ -58,6 +58,7 @@ import { CardCell } from '../../../core/models/bingo-card.model';
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 4px;
+      margin-bottom: 4px;
     }
 
     .card-cell {
@@ -101,9 +102,20 @@ export class BingoCardComponent {
   @Output() cellClick = new EventEmitter<CardCell>();
 
   getCellsForRow(row: number): CardCell[] {
-    return this.cells
+    const cells = this.cells
       .filter(c => c.rowIdx === row)
       .sort((a, b) => a.colIdx - b.colIdx);
+    // Ensure exactly 5 cells per row
+    if (cells.length < 5) {
+      const existing = new Set(cells.map(c => c.colIdx));
+      for (let col = 0; col < 5; col++) {
+        if (!existing.has(col)) {
+          cells.push({ id: -1, rowIdx: row, colIdx: col, number: 0, drawn: false, confirmed: false });
+        }
+      }
+      cells.sort((a, b) => a.colIdx - b.colIdx);
+    }
+    return cells;
   }
 
   onCellClick(cell: CardCell): void {

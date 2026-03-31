@@ -86,7 +86,10 @@ import { RankingEntry } from '../../../core/models/ranking.model';
         <h3>Participantes</h3>
         <div class="participants-grid">
           <div class="participant-chip" *ngFor="let p of participants">
-            <div class="chip-avatar">{{ p.name.charAt(0) }}</div>
+            <div class="chip-avatar">
+              <img *ngIf="p.profilePhotoUrl" [src]="p.profilePhotoUrl" />
+              <span *ngIf="!p.profilePhotoUrl">{{ p.name.charAt(0) }}</span>
+            </div>
             {{ p.name }}
           </div>
         </div>
@@ -145,7 +148,8 @@ import { RankingEntry } from '../../../core/models/ranking.model';
     .participants-section h3 { font-size: 16px; margin-bottom: 12px; }
     .participants-grid { display: flex; flex-wrap: wrap; gap: 8px; }
     .participant-chip { display: flex; align-items: center; gap: 8px; padding: 6px 14px; background: #f5f5f5; border-radius: 20px; font-size: 13px; font-weight: 500; }
-    .chip-avatar { width: 24px; height: 24px; border-radius: 50%; background: #9C27B0; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+    .chip-avatar { width: 24px; height: 24px; border-radius: 50%; background: #9C27B0; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; overflow: hidden; }
+    .chip-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
     .error { background: #ffebee; color: #c62828; padding: 12px; border-radius: 8px; margin-top: 16px; font-size: 14px; max-width: 700px; margin-left: auto; margin-right: auto; }
   `]
@@ -170,11 +174,31 @@ export class GameControlComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadGame();
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
   }
 
   ngOnDestroy(): void {
     this.stopPolling();
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
   }
+
+  private onVisibilityChange = (): void => {
+    if (!document.hidden && this.game?.id) {
+      this.gameService.pollGame(this.game.id).subscribe({
+        next: (data: any) => {
+          if (this.game) {
+            this.game.drawnNumbers = data.drawnNumbers;
+            this.game.status = data.status;
+            if (data.drawnNumbers?.length) {
+              this.lastDrawnNumber = data.drawnNumbers[data.drawnNumbers.length - 1];
+            }
+          }
+          this.winners = data.winners || [];
+          if (data.status === 'FINISHED') this.stopPolling();
+        }
+      });
+    }
+  };
 
   loadGame(): void {
     this.gameService.getActiveGame().subscribe({
